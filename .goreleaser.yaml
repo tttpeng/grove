@@ -1,0 +1,59 @@
+version: 2
+
+project_name: grove
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: grove
+    main: .
+    binary: grove
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/tttpeng/grove/cli.Version={{ .Version }}
+
+archives:
+  - id: grove
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+brews:
+  - name: grove
+    repository:
+      owner: tttpeng
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/tttpeng/grove"
+    description: "Cross-repo git worktree workspace manager (CLI / TUI)"
+    license: "MIT"
+    install: |
+      bin.install "grove"
+    test: |
+      system "#{bin}/grove", "version"
+
+release:
+  github:
+    owner: tttpeng
+    name: grove
