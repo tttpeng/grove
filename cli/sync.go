@@ -63,13 +63,13 @@ func runSyncRoot(cmd *cobra.Command, rp config.ResolvedProject, m *manifest.Mani
 	}
 	failed := 0
 	for _, r := range results {
-		if r.Action == "fetch-failed" {
+		if r.Err != nil {
 			failed++
 		}
 	}
 	printSyncTable(cmd, m, results)
 	if failed > 0 {
-		return fmt.Errorf("%d 个仓库 fetch 失败", failed)
+		return fmt.Errorf("%d 个仓库同步失败", failed)
 	}
 	return nil
 }

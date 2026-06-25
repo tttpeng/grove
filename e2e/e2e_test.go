@@ -513,4 +513,66 @@ func TestSyncRoot(t *testing.T) {
 	if !strings.Contains(out, "super") || !strings.Contains(out, "mod-a") {
 		t.Errorf("status --root should list root repos: %q", out)
 	}
+
+	out, err = runGrove(t, home, cfg, "sync", "--root", "feat/x")
+	if err == nil {
+		t.Errorf("sync --root with a branch arg should error, got:\n%s", out)
+	}
+}
+
+func TestSyncRootFetchFailed(t *testing.T) {
+	base := t.TempDir()
+	home := filepath.Join(base, "home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	origins := filepath.Join(base, "origins")
+	cloneRoot := filepath.Join(base, "clones")
+	worktreeRoot := filepath.Join(base, "trees")
+
+	hostBare := seedBareRepo(t, home, filepath.Join(origins, "super.git"), map[string]string{"HOST.md": "super\n"})
+	modABare := seedBareRepo(t, home, filepath.Join(origins, "mod-a.git"), map[string]string{"README.md": "mod-a\n"})
+
+	manifestPath := filepath.Join(base, "workspace.yaml")
+	workspaceYAML := "project: proj\n" +
+		"defaultBaseline: main\n" +
+		"host:\n" +
+		"  name: super\n" +
+		"  remote: " + hostBare + "\n" +
+		"repos:\n" +
+		"  - name: mod-a\n" +
+		"    remote: " + modABare + "\n"
+	if err := os.WriteFile(manifestPath, []byte(workspaceYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := filepath.Join(base, "config.yaml")
+	configYAML := "current: proj\n" +
+		"projects:\n" +
+		"  proj:\n" +
+		"    manifest: " + manifestPath + "\n" +
+		"    cloneRoot: " + cloneRoot + "\n" +
+		"    worktreeRoot: " + worktreeRoot + "\n"
+	if err := os.WriteFile(cfg, []byte(configYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	runGit(t, home, base, "clone", hostBare, cloneRoot)
+	reposClones := filepath.Join(cloneRoot, "repos")
+	if err := os.MkdirAll(reposClones, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, home, base, "clone", modABare, filepath.Join(reposClones, "mod-a"))
+
+	if err := os.RemoveAll(modABare); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runGrove(t, home, cfg, "sync", "--root")
+	if err == nil {
+		t.Fatalf("sync --root should exit non-zero when a fetch fails:\n%s", out)
+	}
+	if !strings.Contains(out, "mod-a") {
+		t.Errorf("output should mention the failed repo: %q", out)
+	}
 }
