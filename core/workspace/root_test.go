@@ -82,6 +82,7 @@ func TestRootWorkspaceStatus(t *testing.T) {
 	rp, m := setupHost(t, "a", "b")
 	cloneMembers(t, rp, m)
 	advanceRemote(t, rp.CloneRoot, m.Repos[0].Remote, "a-v2\n")
+	gitCmd(t, workspace.MemberCloneDir(rp, m, "a"), "fetch", "origin", "main")
 
 	ws := workspace.RootWorkspace(rp, m)
 	if !ws.IsRoot {

@@ -31,7 +31,6 @@ func RootWorkspace(rp config.ResolvedProject, m *manifest.Manifest) Workspace {
 			st.Exists = true
 			if b, err := git.CurrentBranch(u.cloneDir); err == nil {
 				st.Branch = b
-				_ = git.Fetch(u.cloneDir, "origin", b)
 			}
 			var exclude []string
 			if u.isHost {
