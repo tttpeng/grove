@@ -60,3 +60,13 @@ func TestSyncCmdHasRootFlag(t *testing.T) {
 		t.Errorf("--root flag type = %q, want bool", f.Value.Type())
 	}
 }
+
+func TestStatusCmdHasRootFlag(t *testing.T) {
+	f := newStatusCmd().Flags().Lookup("root")
+	if f == nil {
+		t.Fatal("status command should register --root flag")
+	}
+	if f.Value.Type() != "bool" {
+		t.Errorf("--root flag type = %q, want bool", f.Value.Type())
+	}
+}

@@ -295,8 +295,11 @@ func TestLsEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ls error = %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "无 workspace") {
-		t.Errorf("ls empty output = %q", out)
+	if !strings.Contains(out, "root") {
+		t.Errorf("ls empty should show root row: %q", out)
+	}
+	if !strings.Contains(out, "暂无 feature workspace") {
+		t.Errorf("ls empty should show no-feature hint: %q", out)
 	}
 }
 
