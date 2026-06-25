@@ -43,7 +43,7 @@ func printWorkspaceList(cmd *cobra.Command, rp config.ResolvedProject, m *manife
 		return nil
 	}
 	rows := [][]string{{"分支", "仓库数", "描述"}}
-	for _, ws := range workspaces {
+	for _, ws := range regular {
 		desc := ws.Description
 		if desc == "" {
 			desc = "—"
