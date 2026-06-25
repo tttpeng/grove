@@ -50,3 +50,13 @@ func TestDetectBranchUnrelatedRepo(t *testing.T) {
 		t.Fatalf("detectBranch in unrelated repo = %q, want empty（不在 worktreeRoot 下应进列表）", got)
 	}
 }
+
+func TestSyncCmdHasRootFlag(t *testing.T) {
+	f := newSyncCmd().Flags().Lookup("root")
+	if f == nil {
+		t.Fatal("sync command should register --root flag")
+	}
+	if f.Value.Type() != "bool" {
+		t.Errorf("--root flag type = %q, want bool", f.Value.Type())
+	}
+}

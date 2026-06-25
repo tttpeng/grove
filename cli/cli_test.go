@@ -807,13 +807,6 @@ func TestStatusLabelColumnsAligned(t *testing.T) {
 	}
 }
 
-func TestSyncCmdHasRootFlag(t *testing.T) {
-	cmd := cli.NewSyncCmd()
-	if cmd.Flags().Lookup("root") == nil {
-		t.Error("sync command should register --root flag")
-	}
-}
-
 func TestDoctorShowsLabelColumn(t *testing.T) {
 	cfgPath, worktreeRoot := setupLabeledWorkspaceProject(t, map[string]string{"a": "店长管理小程序"}, "a", "b")
 	if _, err := run(t, "--config", cfgPath, "open", "feat/x"); err != nil {

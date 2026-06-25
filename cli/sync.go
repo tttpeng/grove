@@ -11,10 +11,6 @@ import (
 	"github.com/tttpeng/grove/internal/tablefmt"
 )
 
-func NewSyncCmd() *cobra.Command {
-	return newSyncCmd()
-}
-
 func newSyncCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync [<branch>]",
