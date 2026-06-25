@@ -423,3 +423,94 @@ func currentBranch(t *testing.T, home, dir string) string {
 	}
 	return strings.TrimSpace(string(out))
 }
+
+func TestSyncRoot(t *testing.T) {
+	base := t.TempDir()
+	home := filepath.Join(base, "home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	origins := filepath.Join(base, "origins")
+	cloneRoot := filepath.Join(base, "clones")
+	worktreeRoot := filepath.Join(base, "trees")
+
+	hostBare := seedBareRepo(t, home, filepath.Join(origins, "super.git"), map[string]string{"HOST.md": "super\n"})
+	modABare := seedBareRepo(t, home, filepath.Join(origins, "mod-a.git"), map[string]string{"README.md": "mod-a\n"})
+
+	manifestPath := filepath.Join(base, "workspace.yaml")
+	workspaceYAML := "project: proj\n" +
+		"defaultBaseline: main\n" +
+		"host:\n" +
+		"  name: super\n" +
+		"  remote: " + hostBare + "\n" +
+		"repos:\n" +
+		"  - name: mod-a\n" +
+		"    remote: " + modABare + "\n"
+	if err := os.WriteFile(manifestPath, []byte(workspaceYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := filepath.Join(base, "config.yaml")
+	configYAML := "current: proj\n" +
+		"projects:\n" +
+		"  proj:\n" +
+		"    manifest: " + manifestPath + "\n" +
+		"    cloneRoot: " + cloneRoot + "\n" +
+		"    worktreeRoot: " + worktreeRoot + "\n"
+	if err := os.WriteFile(cfg, []byte(configYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	runGit(t, home, base, "clone", hostBare, cloneRoot)
+	reposClones := filepath.Join(cloneRoot, "repos")
+	if err := os.MkdirAll(reposClones, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, home, base, "clone", modABare, filepath.Join(reposClones, "mod-a"))
+
+	advance := func(bare, file, body string) {
+		work := filepath.Join(t.TempDir(), "adv")
+		runGit(t, home, base, "clone", bare, work)
+		full := filepath.Join(work, file)
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		runGit(t, home, work, "commit", "-am", "advance")
+		runGit(t, home, work, "push", "origin", "main")
+	}
+	advance(hostBare, "HOST.md", "super-v2\n")
+	advance(modABare, "README.md", "mod-a-v2\n")
+
+	out, err := runGrove(t, home, cfg, "sync", "--root")
+	if err != nil {
+		t.Fatalf("sync --root failed: %v\n%s", err, out)
+	}
+	if !e2eLineHas(out, "super", "updated") {
+		t.Errorf("host should be updated: %q", out)
+	}
+	if !e2eLineHas(out, "mod-a", "updated") {
+		t.Errorf("mod-a should be updated: %q", out)
+	}
+
+	hostHead := gitCapture(t, home, cloneRoot, "rev-parse", "HEAD")
+	hostUp := gitCapture(t, home, cloneRoot, "rev-parse", "origin/main")
+	if hostHead != hostUp {
+		t.Errorf("host clone HEAD %q != origin/main %q after sync --root", hostHead, hostUp)
+	}
+
+	out, err = runGrove(t, home, cfg, "ls")
+	if err != nil {
+		t.Fatalf("ls failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "root") {
+		t.Errorf("ls output should contain root row: %q", out)
+	}
+
+	out, err = runGrove(t, home, cfg, "status", "--root")
+	if err != nil {
+		t.Fatalf("status --root failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "super") || !strings.Contains(out, "mod-a") {
+		t.Errorf("status --root should list root repos: %q", out)
+	}
+}
