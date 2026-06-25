@@ -65,7 +65,7 @@ func SyncRoot(rp config.ResolvedProject, m *manifest.Manifest) ([]RepoResult, er
 			results = append(results, result)
 			continue
 		}
-		res, _ := git.FastForward(u.cloneDir, upstream)
+		res, ffErr := git.FastForward(u.cloneDir, upstream)
 		switch res {
 		case git.FFUpToDate:
 			result.Action = "up-to-date"
@@ -74,6 +74,7 @@ func SyncRoot(rp config.ResolvedProject, m *manifest.Manifest) ([]RepoResult, er
 		case git.FFDiverged:
 			result.Action = "skipped"
 			result.Note = "无法快进（本地已分叉或有冲突）"
+			result.Err = ffErr
 		}
 		results = append(results, result)
 	}
