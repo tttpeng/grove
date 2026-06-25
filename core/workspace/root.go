@@ -23,6 +23,37 @@ func rootUnits(rp config.ResolvedProject, m *manifest.Manifest) []rootUnit {
 	return units
 }
 
+func RootWorkspace(rp config.ResolvedProject, m *manifest.Manifest) Workspace {
+	ws := Workspace{IsRoot: true}
+	for _, u := range rootUnits(rp, m) {
+		st := RepoStatus{Repo: u.name, Path: u.cloneDir}
+		if git.IsRepo(u.cloneDir) {
+			st.Exists = true
+			if b, err := git.CurrentBranch(u.cloneDir); err == nil {
+				st.Branch = b
+				_ = git.Fetch(u.cloneDir, "origin", b)
+			}
+			var exclude []string
+			if u.isHost {
+				exclude = HostExcludeDirs(m)
+			}
+			if dirty, err := git.HasTrackedChanges(u.cloneDir, exclude); err == nil {
+				st.Dirty = dirty
+			}
+			if up, err := git.Upstream(u.cloneDir); err == nil {
+				if a, err := git.Ahead(u.cloneDir, up); err == nil {
+					st.Ahead = a
+				}
+				if b, err := git.Behind(u.cloneDir, up); err == nil {
+					st.Behind = b
+				}
+			}
+		}
+		ws.Repos = append(ws.Repos, st)
+	}
+	return ws
+}
+
 func SyncRoot(rp config.ResolvedProject, m *manifest.Manifest) ([]RepoResult, error) {
 	units := rootUnits(rp, m)
 	results := make([]RepoResult, 0, len(units))

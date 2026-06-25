@@ -32,7 +32,13 @@ func printWorkspaceList(cmd *cobra.Command, rp config.ResolvedProject, m *manife
 		return err
 	}
 	w := cmd.OutOrStdout()
-	if len(workspaces) == 0 {
+	var regular []workspace.Workspace
+	for _, ws := range workspaces {
+		if !ws.IsRoot {
+			regular = append(regular, ws)
+		}
+	}
+	if len(regular) == 0 {
 		fmt.Fprintln(w, "（无 workspace）")
 		return nil
 	}

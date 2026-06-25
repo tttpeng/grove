@@ -77,3 +77,43 @@ func TestSyncRootSkipsDirty(t *testing.T) {
 		t.Error("dirty member clone should be untouched")
 	}
 }
+
+func TestRootWorkspaceStatus(t *testing.T) {
+	rp, m := setupHost(t, "a", "b")
+	cloneMembers(t, rp, m)
+	advanceRemote(t, rp.CloneRoot, m.Repos[0].Remote, "a-v2\n")
+
+	ws := workspace.RootWorkspace(rp, m)
+	if !ws.IsRoot {
+		t.Error("RootWorkspace.IsRoot should be true")
+	}
+	if ws.DisplayName() != "root" {
+		t.Errorf("DisplayName = %q, want root", ws.DisplayName())
+	}
+	if len(ws.Repos) != 3 {
+		t.Fatalf("root repos = %d, want 3 (host + 2 members)", len(ws.Repos))
+	}
+	byName := map[string]int{}
+	for _, r := range ws.Repos {
+		if r.Branch != "main" {
+			t.Errorf("%s branch = %q, want main", r.Repo, r.Branch)
+		}
+		byName[r.Repo] = r.Behind
+	}
+	if byName["a"] == 0 {
+		t.Error("member a should be behind after remote advanced")
+	}
+}
+
+func TestListPutsRootFirst(t *testing.T) {
+	rp, m := setupHost(t, "a")
+	cloneMembers(t, rp, m)
+
+	wss, err := workspace.List(rp, m)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(wss) == 0 || !wss[0].IsRoot {
+		t.Fatalf("List[0] should be the root workspace, got %+v", wss)
+	}
+}

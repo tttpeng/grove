@@ -302,14 +302,14 @@ func TestListAndStatusWithHost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(wss) != 1 {
-		t.Fatalf("expected 1 workspace, got %d: %+v", len(wss), wss)
+	if len(wss) != 2 {
+		t.Fatalf("expected 2 workspaces (root + feat/x), got %d: %+v", len(wss), wss)
 	}
-	if len(wss[0].Repos) != 3 {
-		t.Fatalf("workspace should have 3 repos (host+2), got %d: %+v", len(wss[0].Repos), wss[0].Repos)
+	if len(wss[1].Repos) != 3 {
+		t.Fatalf("workspace should have 3 repos (host+2), got %d: %+v", len(wss[1].Repos), wss[1].Repos)
 	}
 	var sawHost bool
-	for _, r := range wss[0].Repos {
+	for _, r := range wss[1].Repos {
 		if r.Repo == "erp-main" {
 			sawHost = true
 		}
@@ -718,11 +718,11 @@ func TestOpenWithDescriptionListReadsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(wss) != 1 {
-		t.Fatalf("expected 1 workspace, got %d", len(wss))
+	if len(wss) != 2 {
+		t.Fatalf("expected 2 workspaces (root + feat/x), got %d", len(wss))
 	}
-	if wss[0].Description != "修复登录" {
-		t.Errorf("Description = %q, want %q", wss[0].Description, "修复登录")
+	if wss[1].Description != "修复登录" {
+		t.Errorf("Description = %q, want %q", wss[1].Description, "修复登录")
 	}
 }
 
@@ -737,11 +737,11 @@ func TestOpenNoDescriptionListEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(wss) != 1 {
-		t.Fatalf("expected 1 workspace, got %d", len(wss))
+	if len(wss) != 2 {
+		t.Fatalf("expected 2 workspaces (root + feat/x), got %d", len(wss))
 	}
-	if wss[0].Description != "" {
-		t.Errorf("Description = %q, want empty", wss[0].Description)
+	if wss[1].Description != "" {
+		t.Errorf("Description = %q, want empty", wss[1].Description)
 	}
 }
 
@@ -759,8 +759,8 @@ func TestSetDescriptionOverwrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if wss[0].Description != "新" {
-		t.Errorf("Description = %q, want %q", wss[0].Description, "新")
+	if wss[1].Description != "新" {
+		t.Errorf("Description = %q, want %q", wss[1].Description, "新")
 	}
 
 	if err := workspace.SetDescription(rp, m, "feat/x", ""); err != nil {
@@ -770,8 +770,8 @@ func TestSetDescriptionOverwrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if wss[0].Description != "" {
-		t.Errorf("Description after clear = %q, want empty", wss[0].Description)
+	if wss[1].Description != "" {
+		t.Errorf("Description after clear = %q, want empty", wss[1].Description)
 	}
 }
 
@@ -816,8 +816,8 @@ func TestDescriptionStoredInHostWhenHost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if wss[0].Description != "有 host" {
-		t.Errorf("List Description = %q, want %q", wss[0].Description, "有 host")
+	if wss[1].Description != "有 host" {
+		t.Errorf("List Description = %q, want %q", wss[1].Description, "有 host")
 	}
 }
 
@@ -1093,15 +1093,18 @@ func TestListAndStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(wss) != 2 {
-		t.Fatalf("expected 2 workspaces, got %d: %+v", len(wss), wss)
+	if len(wss) != 3 {
+		t.Fatalf("expected 3 workspaces (root + feat/x + feat/y), got %d: %+v", len(wss), wss)
 	}
-	branches := []string{wss[0].Branch, wss[1].Branch}
+	branches := []string{wss[1].Branch, wss[2].Branch}
 	sort.Strings(branches)
 	if branches[0] != "feat/x" || branches[1] != "feat/y" {
 		t.Errorf("workspace branches = %v, want feat/x feat/y", branches)
 	}
 	for _, ws := range wss {
+		if ws.IsRoot {
+			continue
+		}
 		if len(ws.Repos) != 2 {
 			t.Errorf("workspace %s has %d repos, want 2", ws.Branch, len(ws.Repos))
 		}

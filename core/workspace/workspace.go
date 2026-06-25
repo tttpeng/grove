@@ -33,6 +33,14 @@ type Workspace struct {
 	Branch      string
 	Description string
 	Repos       []RepoStatus
+	IsRoot      bool
+}
+
+func (w Workspace) DisplayName() string {
+	if w.IsRoot {
+		return "root"
+	}
+	return w.Branch
 }
 
 type OpenOptions struct {
@@ -445,7 +453,7 @@ func List(rp config.ResolvedProject, m *manifest.Manifest) ([]Workspace, error) 
 		desc, _ := git.BranchDescription(descDir, b)
 		workspaces = append(workspaces, Workspace{Branch: b, Description: desc, Repos: repos})
 	}
-	return workspaces, nil
+	return append([]Workspace{RootWorkspace(rp, m)}, workspaces...), nil
 }
 
 func SetDescription(rp config.ResolvedProject, m *manifest.Manifest, branch, desc string) error {
