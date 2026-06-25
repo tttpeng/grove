@@ -100,7 +100,7 @@ func IsDirty(dir string) (bool, error) {
 	return out != "", nil
 }
 
-func IsDirtyExcluding(dir string, excludeNames []string) (bool, error) {
+func statusDirtyExcluding(dir string, excludeNames []string, skipUntracked bool) (bool, error) {
 	out, err := run(dir, "status", "--porcelain")
 	if err != nil {
 		return false, err
@@ -114,6 +114,9 @@ func IsDirtyExcluding(dir string, excludeNames []string) (bool, error) {
 	}
 	for _, line := range strings.Split(out, "\n") {
 		if line == "" {
+			continue
+		}
+		if skipUntracked && strings.HasPrefix(line, "??") {
 			continue
 		}
 		path := line
@@ -134,6 +137,10 @@ func IsDirtyExcluding(dir string, excludeNames []string) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func IsDirtyExcluding(dir string, excludeNames []string) (bool, error) {
+	return statusDirtyExcluding(dir, excludeNames, false)
 }
 
 func Ahead(dir, upstream string) (int, error) {
@@ -332,39 +339,7 @@ func Upstream(dir string) (string, error) {
 }
 
 func HasTrackedChanges(dir string, excludeNames []string) (bool, error) {
-	out, err := run(dir, "status", "--porcelain")
-	if err != nil {
-		return false, err
-	}
-	if out == "" {
-		return false, nil
-	}
-	exclude := map[string]bool{}
-	for _, n := range excludeNames {
-		exclude[n] = true
-	}
-	for _, line := range strings.Split(out, "\n") {
-		if line == "" || strings.HasPrefix(line, "??") {
-			continue
-		}
-		path := line
-		if len(line) > 3 {
-			path = line[3:]
-		}
-		if idx := strings.Index(path, " -> "); idx >= 0 {
-			path = path[idx+4:]
-		}
-		path = strings.Trim(path, "\"")
-		first := path
-		if idx := strings.IndexByte(path, '/'); idx >= 0 {
-			first = path[:idx]
-		}
-		if exclude[first] {
-			continue
-		}
-		return true, nil
-	}
-	return false, nil
+	return statusDirtyExcluding(dir, excludeNames, true)
 }
 
 type FFResult int
