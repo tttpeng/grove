@@ -901,6 +901,35 @@ func TestModelSyncMsgSummaryClearsBusy(t *testing.T) {
 	}
 }
 
+func TestRootRowBlocksClose(t *testing.T) {
+	m := newModel()
+	m.state = viewList
+	m.workspaces = []workspace.Workspace{
+		{IsRoot: true},
+		{Branch: "feat/x"},
+	}
+	m.cursor = 0
+	updated, _ := m.handleListKey(key("c"))
+	if updated.(Model).state == viewConfirmClose {
+		t.Error("selecting root then pressing c must not enter confirm-close")
+	}
+
+	m2 := newModel()
+	m2.state = viewList
+	m2.workspaces = []workspace.Workspace{{IsRoot: true}, {Branch: "feat/x"}}
+	m2.cursor = 1
+	updated2, _ := m2.handleListKey(key("c"))
+	if updated2.(Model).state != viewConfirmClose {
+		t.Error("selecting a normal workspace then pressing c should enter confirm-close")
+	}
+}
+
+func TestRootDisplayNameInList(t *testing.T) {
+	if (workspace.Workspace{IsRoot: true}).DisplayName() != "root" {
+		t.Error("root workspace DisplayName should be 'root'")
+	}
+}
+
 type errStub string
 
 func (e errStub) Error() string { return string(e) }

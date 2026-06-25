@@ -147,6 +147,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = viewDetail
 		if m.detail != nil {
 			m.busy = true
+			if m.detail.IsRoot {
+				return m, detailRootCmd(m.rp, m.m)
+			}
 			return m, detailCmd(m.rp, m.m, m.detail.Branch)
 		}
 		return m, nil
@@ -238,6 +241,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.busy = true
+			if m.detail.IsRoot {
+				return m, syncRootCmd(m.rp, m.m)
+			}
 			return m, syncCmd(m.rp, m.m, m.detail.Branch)
 		}
 	case viewDoctor:
@@ -282,6 +288,9 @@ func (m Model) handleListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.busy = true
 		m.state = viewDetail
 		m.detail = nil
+		if ws.IsRoot {
+			return m, detailRootCmd(m.rp, m.m)
+		}
 		return m, detailCmd(m.rp, m.m, ws.Branch)
 	case "o":
 		m.state = viewOpen
@@ -292,7 +301,7 @@ func (m Model) handleListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.input.Focus()
 		return m, textinput.Blink
 	case "c":
-		if m.selected() != nil {
+		if ws := m.selected(); ws != nil && !ws.IsRoot {
 			m.state = viewConfirmClose
 		}
 	case "d":
@@ -333,7 +342,11 @@ func summarizeSyncResults(res []workspace.RepoResult) string {
 	counts := map[string]int{}
 	for _, r := range res {
 		if r.Err != nil {
-			counts["sync-failed"]++
+			if r.Action == "fetch-failed" {
+				counts["fetch-failed"]++
+			} else {
+				counts["sync-failed"]++
+			}
 			continue
 		}
 		counts[r.Action]++
@@ -341,7 +354,7 @@ func summarizeSyncResults(res []workspace.RepoResult) string {
 	if len(counts) == 0 {
 		return "无改动"
 	}
-	order := []string{"synced", "up-to-date", "conflict", "skipped", "sync-failed"}
+	order := []string{"synced", "updated", "up-to-date", "conflict", "skipped", "sync-failed", "fetch-failed"}
 	var parts []string
 	for _, k := range order {
 		if n, ok := counts[k]; ok {

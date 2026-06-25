@@ -64,7 +64,7 @@ func (m Model) viewList() string {
 		if desc == "" {
 			desc = "—"
 		}
-		rows = append(rows, []string{ws.Branch, strconv.Itoa(len(ws.Repos)), desc})
+		rows = append(rows, []string{ws.DisplayName(), strconv.Itoa(len(ws.Repos)), desc})
 	}
 	lines := tablefmt.Columns(rows, []tablefmt.Align{tablefmt.Left, tablefmt.Right, tablefmt.Left})
 
@@ -104,7 +104,7 @@ func (m Model) viewDetail() string {
 	lines := tablefmt.Columns(rows, []tablefmt.Align{tablefmt.Left, tablefmt.Left, tablefmt.Left, tablefmt.Left, tablefmt.Left, tablefmt.Left})
 
 	var b strings.Builder
-	b.WriteString(titleStyle.Render(m.detail.Branch))
+	b.WriteString(titleStyle.Render(m.detail.DisplayName()))
 	b.WriteString("\n\n")
 	b.WriteString(headerStyle.Render(lines[0]))
 	b.WriteString("\n")

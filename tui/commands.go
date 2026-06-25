@@ -91,3 +91,17 @@ func pruneCmd(rp config.ResolvedProject, m *manifest.Manifest) tea.Cmd {
 		return pruneMsg{res: res, err: err}
 	}
 }
+
+func detailRootCmd(rp config.ResolvedProject, m *manifest.Manifest) tea.Cmd {
+	return func() tea.Msg {
+		ws := workspace.RootWorkspace(rp, m)
+		return detailMsg{ws: &ws}
+	}
+}
+
+func syncRootCmd(rp config.ResolvedProject, m *manifest.Manifest) tea.Cmd {
+	return func() tea.Msg {
+		res, err := workspace.SyncRoot(rp, m)
+		return syncMsg{res: res, err: err}
+	}
+}
