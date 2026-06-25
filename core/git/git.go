@@ -326,3 +326,65 @@ func SetBranchDescription(dir, branch, desc string) error {
 	}
 	return nil
 }
+
+func Upstream(dir string) (string, error) {
+	return run(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+}
+
+func HasTrackedChanges(dir string, excludeNames []string) (bool, error) {
+	out, err := run(dir, "status", "--porcelain")
+	if err != nil {
+		return false, err
+	}
+	if out == "" {
+		return false, nil
+	}
+	exclude := map[string]bool{}
+	for _, n := range excludeNames {
+		exclude[n] = true
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if line == "" || strings.HasPrefix(line, "??") {
+			continue
+		}
+		path := line
+		if len(line) > 3 {
+			path = line[3:]
+		}
+		if idx := strings.Index(path, " -> "); idx >= 0 {
+			path = path[idx+4:]
+		}
+		path = strings.Trim(path, "\"")
+		first := path
+		if idx := strings.IndexByte(path, '/'); idx >= 0 {
+			first = path[:idx]
+		}
+		if exclude[first] {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+type FFResult int
+
+const (
+	FFUpToDate FFResult = iota
+	FFUpdated
+	FFDiverged
+)
+
+func FastForward(dir, ref string) (FFResult, error) {
+	out, code, err := runExit(dir, "merge", "--ff-only", ref)
+	if code == 0 {
+		if strings.Contains(strings.ToLower(out), "up to date") {
+			return FFUpToDate, nil
+		}
+		return FFUpdated, nil
+	}
+	if code > 0 {
+		return FFDiverged, nil
+	}
+	return FFDiverged, err
+}

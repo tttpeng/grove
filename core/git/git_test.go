@@ -554,3 +554,96 @@ func TestStashPopConflict(t *testing.T) {
 		t.Errorf("working tree should retain conflict markers, got: %q", content)
 	}
 }
+
+func TestUpstream(t *testing.T) {
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin")
+	initRepoWithCommit(t, origin)
+	clone := filepath.Join(root, "clone")
+	if err := git.Clone(origin, clone); err != nil {
+		t.Fatal(err)
+	}
+	up, err := git.Upstream(clone)
+	if err != nil {
+		t.Fatalf("Upstream: %v", err)
+	}
+	if up != "origin/main" {
+		t.Errorf("Upstream = %q, want origin/main", up)
+	}
+	git_(t, clone, "checkout", "-b", "loner")
+	if _, err := git.Upstream(clone); err == nil {
+		t.Error("Upstream should error on a branch with no upstream")
+	}
+}
+
+func TestHasTrackedChanges(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "r")
+	initRepoWithCommit(t, dir)
+
+	if dirty, err := git.HasTrackedChanges(dir, nil); err != nil || dirty {
+		t.Errorf("clean repo: got dirty=%v err=%v", dirty, err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if dirty, err := git.HasTrackedChanges(dir, nil); err != nil || dirty {
+		t.Errorf("untracked only: got dirty=%v err=%v, want false", dirty, err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("changed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if dirty, err := git.HasTrackedChanges(dir, nil); err != nil || !dirty {
+		t.Errorf("tracked change: got dirty=%v err=%v, want true", dirty, err)
+	}
+
+	git_(t, dir, "checkout", "--", "README.md")
+	if err := os.MkdirAll(filepath.Join(dir, "repos", "x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "repos", "x", "f"), []byte("y\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git_(t, dir, "add", "repos")
+	if dirty, err := git.HasTrackedChanges(dir, []string{"repos"}); err != nil || dirty {
+		t.Errorf("excluded repos/: got dirty=%v err=%v, want false", dirty, err)
+	}
+}
+
+func TestFastForward(t *testing.T) {
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin")
+	initRepoWithCommit(t, origin)
+	clone := filepath.Join(root, "clone")
+	if err := git.Clone(origin, clone); err != nil {
+		t.Fatal(err)
+	}
+
+	if res, err := git.FastForward(clone, "origin/main"); err != nil || res != git.FFUpToDate {
+		t.Errorf("up-to-date: res=%v err=%v, want FFUpToDate", res, err)
+	}
+
+	if err := os.WriteFile(filepath.Join(origin, "README.md"), []byte("v2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git_(t, origin, "commit", "-am", "v2")
+	if err := git.Fetch(clone, "origin", "main"); err != nil {
+		t.Fatal(err)
+	}
+	if res, err := git.FastForward(clone, "origin/main"); err != nil || res != git.FFUpdated {
+		t.Errorf("behind: res=%v err=%v, want FFUpdated", res, err)
+	}
+
+	if err := os.WriteFile(filepath.Join(origin, "README.md"), []byte("v3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git_(t, origin, "commit", "-am", "v3")
+	git_(t, clone, "commit", "--allow-empty", "-m", "local-only")
+	if err := git.Fetch(clone, "origin", "main"); err != nil {
+		t.Fatal(err)
+	}
+	if res, err := git.FastForward(clone, "origin/main"); err != nil || res != git.FFDiverged {
+		t.Errorf("diverged: res=%v err=%v, want FFDiverged", res, err)
+	}
+}
