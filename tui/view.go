@@ -154,7 +154,11 @@ func (m Model) viewDoctor() string {
 }
 
 func (m Model) viewOpen() string {
-	return "新工作空间分支名:\n\n" + m.input.View()
+	s := "新工作空间分支名:\n\n" + m.input.View()
+	if m.openErr != "" {
+		s += "\n\n" + dirtyStyle.Render("失败: "+m.openErr)
+	}
+	return s
 }
 
 func (m Model) viewOpenDesc() string {

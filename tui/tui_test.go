@@ -240,8 +240,8 @@ func TestModelOpenDescSubmit(t *testing.T) {
 	m, _ = update(m, tea.KeyMsg{Type: tea.KeyEnter})
 	m.input.SetValue("修复支付")
 	m, cmd := update(m, tea.KeyMsg{Type: tea.KeyEnter})
-	if m.state != viewList {
-		t.Fatalf("描述提交后 state 应为 viewList，实际 %d", m.state)
+	if m.state != viewOpenDesc {
+		t.Fatalf("描述提交后 state 应保持 viewOpenDesc（等 openMsg 分流），实际 %d", m.state)
 	}
 	if !m.busy {
 		t.Fatal("描述提交后 busy 应为 true")
@@ -261,8 +261,8 @@ func TestModelOpenDescEmptySubmits(t *testing.T) {
 	m.input.SetValue("feat/x")
 	m, _ = update(m, tea.KeyMsg{Type: tea.KeyEnter})
 	m, cmd := update(m, tea.KeyMsg{Type: tea.KeyEnter})
-	if m.state != viewList {
-		t.Fatalf("空描述提交后 state 应为 viewList，实际 %d", m.state)
+	if m.state != viewOpenDesc {
+		t.Fatalf("空描述提交后 state 应保持 viewOpenDesc（等 openMsg 分流），实际 %d", m.state)
 	}
 	if !m.busy {
 		t.Fatal("空描述提交后 busy 应为 true")
@@ -703,7 +703,7 @@ func TestTeatestInteraction(t *testing.T) {
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 }
 
-func TestTeatestOpenFlowWithDescription(t *testing.T) {
+func TestTeatestOpenFlowFailureReturnsToBranchPage(t *testing.T) {
 	m := newModel()
 	m.input = textinput.New()
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
@@ -727,19 +727,13 @@ func TestTeatestOpenFlowWithDescription(t *testing.T) {
 
 	tm.Type("加购物车")
 	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
-
-	ws := append(twoWorkspaces(), workspace.Workspace{
-		Branch:      "feat/gamma",
-		Description: "加购物车",
-		Repos:       []workspace.RepoStatus{{Repo: "api", Exists: true, Branch: "feat/gamma"}},
-	})
-	tm.Send(listMsg{ws: ws})
+	tm.Send(openMsg{err: errStub("仓库 api 未 clone，请先 grove bootstrap")})
 
 	teatest.WaitFor(t, out, func(b []byte) bool {
-		return bytes.Contains(b, []byte("feat/gamma")) && bytes.Contains(b, []byte("加购物车"))
+		return bytes.Contains(b, []byte("feat/gamma")) && bytes.Contains(b, []byte("bootstrap"))
 	}, teatest.WithDuration(3*time.Second))
 
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 }
 
@@ -933,3 +927,54 @@ func TestRootDisplayNameInList(t *testing.T) {
 type errStub string
 
 func (e errStub) Error() string { return string(e) }
+
+func TestOpenFailureKeepsInputAndReturnsToBranchPage(t *testing.T) {
+	m := newModel()
+	m.state = viewOpenDesc
+	m.pendingBranch = "fix"
+	m.pendingDesc = "修复登录"
+	m.busy = true
+	nm, _ := update(m, openMsg{err: errStub("仓库 erp-main 失败：cannot lock ref 'refs/heads/fix'")})
+	if nm.state != viewOpen {
+		t.Fatalf("失败后应回 viewOpen，实际 %d", nm.state)
+	}
+	if !strings.Contains(nm.input.Value(), "fix") {
+		t.Errorf("分支名应预填 fix，实际 %q", nm.input.Value())
+	}
+	if nm.openErr == "" {
+		t.Error("openErr 应包含失败信息")
+	}
+	if nm.pendingDesc != "修复登录" {
+		t.Errorf("描述应保留，实际 %q", nm.pendingDesc)
+	}
+}
+
+func TestOpenSuccessClearsInputAndGoesToList(t *testing.T) {
+	m := newModel()
+	m.state = viewOpenDesc
+	m.pendingBranch = "feat/x"
+	m.pendingDesc = "desc"
+	m.openErr = "旧错误"
+	m.busy = true
+	nm, _ := update(m, openMsg{res: []workspace.RepoResult{{Repo: "a", Action: "created"}}})
+	if nm.state != viewList {
+		t.Fatalf("成功后应到 viewList，实际 %d", nm.state)
+	}
+	if nm.pendingBranch != "" || nm.pendingDesc != "" || nm.openErr != "" {
+		t.Errorf("成功后应清空 pending/openErr，实际 branch=%q desc=%q err=%q", nm.pendingBranch, nm.pendingDesc, nm.openErr)
+	}
+}
+
+func TestOpenDescPrefillsPendingDesc(t *testing.T) {
+	m := newModel()
+	m.state = viewOpen
+	m.pendingDesc = "旧描述"
+	m.input.SetValue("feat/y")
+	nm, _ := update(m, key("enter"))
+	if nm.state != viewOpenDesc {
+		t.Fatalf("应进 viewOpenDesc，实际 %d", nm.state)
+	}
+	if nm.input.Value() != "旧描述" {
+		t.Errorf("描述应预填旧描述，实际 %q", nm.input.Value())
+	}
+}

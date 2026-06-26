@@ -35,6 +35,7 @@ type Model struct {
 	pendingBranch string
 	pendingDesc   string
 	status        string
+	openErr       string
 	busy          bool
 	quitting      bool
 	width         int
@@ -113,10 +114,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case openMsg:
 		m.busy = false
 		if msg.err != nil {
-			m.status = "错误: " + msg.err.Error()
-			return m, nil
+			m.openErr = msg.err.Error()
+			m.state = viewOpen
+			m.input.Reset()
+			m.input.SetValue(m.pendingBranch)
+			m.input.Placeholder = "feat/xxx"
+			m.input.Focus()
+			return m, textinput.Blink
 		}
 		m.status = "open：" + summarizeRepoResults(msg.res)
+		m.pendingBranch = ""
+		m.pendingDesc = ""
+		m.openErr = ""
+		m.state = viewList
 		m.busy = true
 		return m, listCmd(m.rp, m.m)
 	case closeMsg:
@@ -179,11 +189,15 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.pendingBranch = branch
 			m.state = viewOpenDesc
 			m.input.Reset()
+			m.input.SetValue(m.pendingDesc)
 			m.input.Placeholder = "可空，例如：修复登录"
 			m.input.Focus()
 			return m, textinput.Blink
 		case "esc":
 			m.state = viewList
+			m.pendingBranch = ""
+			m.pendingDesc = ""
+			m.openErr = ""
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -199,11 +213,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "enter":
 			m.pendingDesc = strings.TrimSpace(m.input.Value())
 			branch := m.pendingBranch
-			m.state = viewList
 			m.busy = true
 			return m, openCmd(m.rp, m.m, branch, m.pendingDesc)
 		case "esc":
 			m.state = viewList
+			m.pendingBranch = ""
+			m.pendingDesc = ""
+			m.openErr = ""
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -296,6 +312,7 @@ func (m Model) handleListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state = viewOpen
 		m.pendingBranch = ""
 		m.pendingDesc = ""
+		m.openErr = ""
 		m.input.Reset()
 		m.input.Placeholder = "feat/xxx"
 		m.input.Focus()
