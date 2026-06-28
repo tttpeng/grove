@@ -978,3 +978,70 @@ func TestOpenDescPrefillsPendingDesc(t *testing.T) {
 		t.Errorf("描述应预填旧描述，实际 %q", nm.input.Value())
 	}
 }
+
+func TestDetailCloseEntersConfirmTargetingDetail(t *testing.T) {
+	m := newModel()
+	m.state = viewDetail
+	m.detail = &workspace.Workspace{Branch: "feat/x"}
+	nm, _ := update(m, key("c"))
+	if nm.state != viewConfirmClose {
+		t.Fatalf("详情按 c 应进 viewConfirmClose，实际 %d", nm.state)
+	}
+	if nm.pendingClose != "feat/x" {
+		t.Errorf("pendingClose 应为 feat/x，实际 %q", nm.pendingClose)
+	}
+	if nm.confirmReturn != viewDetail {
+		t.Errorf("confirmReturn 应为 viewDetail，实际 %d", nm.confirmReturn)
+	}
+}
+
+func TestDetailCloseBlockedForRoot(t *testing.T) {
+	m := newModel()
+	m.state = viewDetail
+	m.detail = &workspace.Workspace{IsRoot: true}
+	nm, _ := update(m, key("c"))
+	if nm.state == viewConfirmClose {
+		t.Error("root 详情按 c 不应进 confirmClose")
+	}
+}
+
+func TestConfirmCloseCancelReturnsToSource(t *testing.T) {
+	m := newModel()
+	m.state = viewConfirmClose
+	m.confirmReturn = viewDetail
+	m.detail = &workspace.Workspace{Branch: "feat/x"}
+	nm, _ := update(m, key("n"))
+	if nm.state != viewDetail {
+		t.Fatalf("confirmReturn=viewDetail 时取消应回 viewDetail，实际 %d", nm.state)
+	}
+}
+
+func TestListCloseEntersConfirmTargetingSelected(t *testing.T) {
+	m := newModel()
+	m, _ = update(m, listMsg{ws: twoWorkspaces()})
+	m.state = viewList
+	m.cursor = 0
+	nm, _ := update(m, key("c"))
+	if nm.state != viewConfirmClose {
+		t.Fatalf("列表按 c 应进 viewConfirmClose，实际 %d", nm.state)
+	}
+	if nm.pendingClose != "feat/alpha" {
+		t.Errorf("pendingClose 应为 feat/alpha，实际 %q", nm.pendingClose)
+	}
+	if nm.confirmReturn != viewList {
+		t.Errorf("confirmReturn 应为 viewList，实际 %d", nm.confirmReturn)
+	}
+}
+
+func TestDetailRefreshTriggersReload(t *testing.T) {
+	m := newModel()
+	m.state = viewDetail
+	m.detail = &workspace.Workspace{Branch: "feat/x"}
+	nm, cmd := update(m, key("r"))
+	if !nm.busy {
+		t.Error("详情 r 刷新应置 busy")
+	}
+	if cmd == nil {
+		t.Error("详情 r 刷新应返回非 nil cmd")
+	}
+}

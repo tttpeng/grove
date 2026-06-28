@@ -166,12 +166,7 @@ func (m Model) viewOpenDesc() string {
 }
 
 func (m Model) viewConfirmClose() string {
-	ws := m.selected()
-	branch := ""
-	if ws != nil {
-		branch = ws.Branch
-	}
-	return fmt.Sprintf("回收 %s？(y/n)", titleStyle.Render(branch))
+	return fmt.Sprintf("回收 %s？(y/n)", titleStyle.Render(m.pendingClose))
 }
 
 func (m Model) footer() string {
@@ -187,7 +182,7 @@ func (m Model) footer() string {
 	case viewList:
 		help = "↑/↓ 移动 · enter 详情 · o 新建 · c 回收 · d 体检 · p 清理 · r 刷新 · q 退出"
 	case viewDetail:
-		help = "d 体检 · s 同步 · esc/q 返回"
+		help = "c 回收 · d 体检 · s 同步 · r 刷新 · esc/q 返回"
 	case viewDoctor:
 		help = "esc/q 返回"
 	case viewOpen:

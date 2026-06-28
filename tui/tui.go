@@ -36,6 +36,8 @@ type Model struct {
 	pendingDesc   string
 	status        string
 	openErr       string
+	pendingClose  string
+	confirmReturn viewState
 	busy          bool
 	quitting      bool
 	width         int
@@ -261,6 +263,22 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, syncRootCmd(m.rp, m.m)
 			}
 			return m, syncCmd(m.rp, m.m, m.detail.Branch)
+		case "c":
+			if m.detail != nil && !m.detail.IsRoot {
+				m.pendingClose = m.detail.Branch
+				m.confirmReturn = viewDetail
+				m.state = viewConfirmClose
+			}
+			return m, nil
+		case "r":
+			if m.detail == nil {
+				return m, nil
+			}
+			m.busy = true
+			if m.detail.IsRoot {
+				return m, detailRootCmd(m.rp, m.m)
+			}
+			return m, detailCmd(m.rp, m.m, m.detail.Branch)
 		}
 	case viewDoctor:
 		switch msg.String() {
@@ -272,14 +290,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "y":
 			m.state = viewList
-			ws := m.selected()
-			if ws == nil {
+			if m.pendingClose == "" {
 				return m, nil
 			}
 			m.busy = true
-			return m, closeCmd(m.rp, m.m, ws.Branch, workspace.CloseOptions{})
+			return m, closeCmd(m.rp, m.m, m.pendingClose, workspace.CloseOptions{})
 		case "n", "esc":
-			m.state = viewList
+			m.state = m.confirmReturn
 			return m, nil
 		}
 	}
@@ -319,6 +336,8 @@ func (m Model) handleListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, textinput.Blink
 	case "c":
 		if ws := m.selected(); ws != nil && !ws.IsRoot {
+			m.pendingClose = ws.Branch
+			m.confirmReturn = viewList
 			m.state = viewConfirmClose
 		}
 	case "d":
